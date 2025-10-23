@@ -264,24 +264,255 @@ with tab2:
                         # Download button
                         csv = results_df.to_csv(index=False)
                         st.download_button(
-                           label="Download Predictions",
-                           data=csv,
-                           file_name="predictions.csv",
-                           mime="text/csv"
+                            label="📥 Download Results as CSV",
+                            data=csv,
+                            file_name=f"bean_predictions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv",
+                            use_container_width=True
                         )
-                        st.balloons()
-                        
-
-
+        
         except Exception as e:
-                st.error(f"An error occurred: {str(e)}")
-                st.info("Please make sure all model files are present and inputs are valid.")
+            st.error(f"❌ Error processing file: {str(e)}")
+    else:
+        st.info("👆 Please upload a CSV file to begin batch prediction.")
+        
+        # Show example format
+        st.markdown("### 📝 Expected CSV Format")
+        example_df = pd.DataFrame({feature: [0.0] for feature in metadata['features']})
+        st.dataframe(example_df, use_container_width=True)
+        
+        # Download example template
+        csv_template = example_df.to_csv(index=False)
+        st.download_button(
+            label="📄 Download Template CSV",
+            data=csv_template,
+            file_name="bean_classification_template.csv",
+            mime="text/csv"
+        )
 
+# Tab 3: Model Information
+with tab3:
+    st.header("📈 Model Performance & Information")
+    
+    # Model metrics
+    st.subheader("🎯 Model Performance Metrics")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            label="Accuracy",
+            value=f"{metadata['test_accuracy']:.2%}",
+            delta="Test Set"
+        )
+    
+    with col2:
+        st.metric(
+            label="F1 Score",
+            value=f"{metadata['f1_score']:.4f}",
+            delta="Weighted"
+        )
+    
+    with col3:
+        st.metric(
+            label="Classes",
+            value=metadata['n_classes']
+        )
+    
+    with col4:
+        st.metric(
+            label="Features",
+            value=metadata['n_features']
+        )
+    
+    st.markdown("---")
+    
+    # Feature importance (if available)
+    if hasattr(model, 'feature_importances_'):
+        st.subheader("🔍 Feature Importance")
+        
+        importance_df = pd.DataFrame({
+            'Feature': metadata['features'],
+            'Importance': model.feature_importances_
+        }).sort_values('Importance', ascending=False)
+        
+        fig = px.bar(
+            importance_df.head(15),
+            x='Importance',
+            y='Feature',
+            orientation='h',
+            title="Top 15 Most Important Features",
+            color='Importance',
+            color_continuous_scale='Viridis'
+        )
+        fig.update_layout(height=500)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        with st.expander("📋 View All Feature Importances"):
+            st.dataframe(importance_df, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # Model details
+    st.subheader("ℹ️ Model Details")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        **Model Type**: {metadata['model_name']}  
+        **Model Class**: {metadata['model_type']}  
+        **Balancing Method**: {metadata['balancing_method']}  
+        **Training Date**: {metadata['training_date']}
+        """)
+    
+    with col2:
+        st.markdown(f"""
+        **Number of Features**: {metadata['n_features']}  
+        **Number of Classes**: {metadata['n_classes']}  
+        **Test Accuracy**: {metadata['test_accuracy']:.4f}  
+        **F1 Score**: {metadata['f1_score']:.4f}
+        """)
+    
+    # Feature list
+    with st.expander("📝 Complete Feature List"):
+        feature_df = pd.DataFrame({
+            'Index': range(1, len(metadata['features']) + 1),
+            'Feature Name': metadata['features']
+        })
+        st.dataframe(feature_df, use_container_width=True)
+    
+    # Class list
+    with st.expander("🫘 Bean Classes"):
+        class_df = pd.DataFrame({
+            'Index': range(len(metadata['classes'])),
+            'Class Name': metadata['classes']
+        })
+        st.dataframe(class_df, use_container_width=True)
 
-# Add footer
+# Tab 4: About
+with tab4:
+    st.header("ℹ️ About This Application")
+    
+    st.markdown("""
+    ## Bean Classification System
+    
+    This application uses machine learning to classify dry bean varieties based on their physical characteristics 
+    measured through computer vision algorithms.
+    
+    ### 📊 Dataset Information
+    
+    The model was trained on a comprehensive dataset of dry bean samples with the following features:
+    
+    #### Size Features:
+    - **Area (A)**: The area of a bean zone and the number of pixels within its boundaries
+    - **Perimeter (P)**: Bean circumference, the length of its border
+    - **Major Axis Length (L)**: The distance between the ends of the longest line drawable from a bean
+    - **Minor Axis Length (l)**: The longest line drawable perpendicular to the main axis
+    - **Convex Area (C)**: Number of pixels in the smallest convex polygon containing the bean seed
+    - **Equivalent Diameter (Ed)**: Diameter of a circle with the same area as the bean
+    
+    #### Shape Features:
+    - **Aspect Ratio (K)**: Relationship between major and minor axes
+    - **Eccentricity (Ec)**: Eccentricity of the ellipse having the same moments as the region
+    - **Extent (Ex)**: Ratio of pixels in the bounding box to the bean area
+    - **Solidity (S)**: Ratio of pixels in the convex shell to those in the bean
+    - **Roundness (R)**: Calculated as (4πA)/(P²)
+    - **Compactness (CO)**: Measures roundness as Ed/L
+    - **Shape Factors (SF1-SF4)**: Additional geometric descriptors
+    
+    ### 🎯 Bean Classes
+    
+    The model can classify beans into the following varieties:
+    """)
+    
+    for idx, bean_class in enumerate(metadata['classes'], 1):
+        st.markdown(f"{idx}. **{bean_class}**")
+    
+    st.markdown("""
+    ### 🔬 Model Performance
+    
+    The model has been trained and evaluated using:
+    - **Stratified train-test split** to maintain class distribution
+    - **Cross-validation** for robust performance estimation
+    - **Multiple evaluation metrics** (Accuracy, Precision, Recall, F1-Score)
+    - **Class imbalance handling** techniques for fair classification
+    
+    ### 🚀 How to Use
+    
+    #### Single Prediction:
+    1. Navigate to the "Single Prediction" tab
+    2. Enter the feature values for your bean sample
+    3. Click "Classify Bean" to get the prediction
+    4. View the predicted class and confidence scores
+    
+    #### Batch Prediction:
+    1. Navigate to the "Batch Prediction" tab
+    2. Download the template CSV file
+    3. Fill in your data following the template format
+    4. Upload your completed CSV file
+    5. Click "Run Batch Prediction"
+    6. Download the results with predictions
+    
+    ### 📚 Technical Details
+    
+    - **Machine Learning Framework**: Scikit-learn
+    - **Preprocessing**: StandardScaler for feature normalization
+    - **Model Type**: {model_type}
+    - **Programming Language**: Python
+    - **Web Framework**: Streamlit
+    
+    ### 📝 Notes
+    
+    - All feature values should be numerical
+    - Features are automatically scaled using the same scaler from training
+    - Predictions include confidence scores (probability estimates)
+    - The model works best with data similar to its training distribution
+    
+    ### ⚠️ Limitations
+    
+    - The model's accuracy depends on the quality of input measurements
+    - Computer vision measurements should follow the same methodology as training data
+    - Performance may vary for bean varieties not well-represented in training data
+    - Regular retraining with new data is recommended for maintaining accuracy
+    
+    ### 🔄 Version Information
+    
+    - **Model Version**: 1.0
+    - **Last Updated**: {metadata['training_date']}
+    - **Model Accuracy**: {metadata['test_accuracy']:.2%}
+    - **F1 Score**: {metadata['f1_score']:.4f}
+    
+    ### 📧 Contact & Support
+    
+    For questions, issues, or suggestions about this application, please contact the development team.
+    
+    ---
+    
+    *Built with ❤️ using Streamlit and Scikit-learn*
+    """)
+    
+    # System information
+    with st.expander("🖥️ System Information"):
+        st.code(f"""
+Python Libraries Used:
+- streamlit: {st.__version__}
+- pandas: {pd.__version__}
+- numpy: {np.__version__}
+- scikit-learn: (check version)
+- joblib: (check version)
+
+Model Information:
+- Model Type: {metadata['model_type']}
+- Number of Parameters: {metadata['n_features']}
+- Classes: {metadata['n_classes']}
+        """)
+
+# Footer
 st.markdown("---")
 st.markdown("""
-<div style='text-align: center'>
-<p>Built with Streamlit • Using Machine Learning • Based on Historical Insurance Data</p>
+<div style="text-align: center; color: #666; padding: 2rem 0;">
+    <p>Bean Classification System v1.0 | © 2024 | Powered by Machine Learning</p>
+    <p>Model Accuracy: {:.2%} | F1 Score: {:.4f}</p>
 </div>
-""", unsafe_allow_html=True)
+""".format(metadata['test_accuracy'], metadata['f1_score']), unsafe_allow_html=True)
