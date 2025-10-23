@@ -237,9 +237,7 @@ with tab2:
                         col1, col2, col3, col4 = st.columns(4)
 
                         with col1:
-                            st.metric("Total Samples", len(results_df))
-                        with col2:
-                            st.metric("Correctly classified", len(results_df[results_df['Predicted_Class'] == results_df['Actual_Class']]))
+                            st.metric("Total Samples", len(results_df)) 
                         with col3:
                             st.metric("Average Confidence", f"{confidences.mean():.2f}%")
                         with col4:
